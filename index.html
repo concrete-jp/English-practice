@@ -9,7 +9,7 @@
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: #f0f4f8; color: #2d3748;
-    height: 100dvh; /* dynamic viewport height for iOS */
+    height: 100dvh;
     display: flex; flex-direction: column; overflow: hidden;
   }
 
@@ -34,7 +34,6 @@
   }
   .tab.active { color: #2b6cb0; border-bottom-color: #2b6cb0; }
 
-  /* panels fill remaining height */
   .panels { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
   .panel { display: none; flex: 1; overflow-y: auto; padding: 14px; }
   .panel.active { display: flex; flex-direction: column; }
@@ -75,7 +74,6 @@
     border-radius: 16px 16px 16px 4px;
   }
 
-  /* natural expression card */
   .natural-card {
     margin-top: 8px; background: #fffbeb;
     border: 1px solid #f6e05e; border-radius: 12px; padding: 12px 14px;
@@ -91,7 +89,6 @@
   }
   .save-btn.saved { background: #48bb78; color: white; }
 
-  /* input area */
   .input-area {
     padding: 10px 0;
     padding-bottom: max(10px, env(safe-area-inset-bottom));
@@ -101,7 +98,7 @@
   .text-input {
     flex: 1; padding: 11px 14px;
     border: 2px solid #e2e8f0; border-radius: 22px;
-    font-size: 16px; /* 16px prevents iOS zoom */
+    font-size: 16px;
     line-height: 1.4; resize: none; outline: none;
     font-family: inherit; max-height: 100px; overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -129,7 +126,7 @@
   .mic-btn.recording { background: #fc8181; animation: pulse 1s infinite; }
   .mic-btn:active { transform: scale(0.95); }
   @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(229,62,62,0.4); } 50% { box-shadow: 0 0 0 8px rgba(229,62,62,0); } }
-  .interim-text { font-size: 12px; color: #a0aec0; font-style: italic; min-height: 18px; padding: 2px 4px; }
+  .interim-text { font-size: 12px; color: #718096; font-style: italic; min-height: 18px; padding: 2px 4px; }
 
   /* ===== NOTEBOOK ===== */
   .nb-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0; }
@@ -186,10 +183,8 @@
   .field-row { display: flex; gap: 8px; }
   .field-row input { flex: 1; padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 16px; }
   .field-row input:focus { outline: none; border-color: #2b6cb0; }
-  select { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 15px; margin-bottom: 10px; background: white; }
   .btn { padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
   .btn-primary { background: #2b6cb0; color: white; width: 100%; padding: 12px; font-size: 15px; border-radius: 10px; margin-top: 4px; }
-  .btn-secondary { background: #e2e8f0; color: #4a5568; }
   .btn-danger { background: #fff5f5; color: #c53030; border: 1px solid #fed7d7; }
   .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 10px; }
   .status-ok { background: #c6f6d5; color: #276749; }
@@ -213,12 +208,12 @@
 <body>
 
 <div class="header">
-  <h1>🎙️ English Speaking Practice</h1>
-  <p>話す → 自然な表現を学ぶ → メモ帳に蓄積 → 英作文練習</p>
+  <h1>🎙️ English Diary Practice</h1>
+  <p>日記を英語で話す → 添削 → 表現をストック</p>
 </div>
 
 <div class="tabs">
-  <div class="tab active" data-tab="chat" onclick="switchTab(this)">💬 会話</div>
+  <div class="tab active" data-tab="chat" onclick="switchTab(this)">💬 日記</div>
   <div class="tab" data-tab="notebook" onclick="switchTab(this)">📒 メモ帳</div>
   <div class="tab" data-tab="practice" onclick="switchTab(this)">✏️ 練習</div>
   <div class="tab" data-tab="settings" onclick="switchTab(this)">⚙️ 設定</div>
@@ -234,7 +229,7 @@
         <div id="interim-display" class="interim-text"></div>
         <div class="input-row">
           <textarea id="text-input" class="text-input" rows="1"
-            placeholder="英語を入力してください..."
+            placeholder="英語で今日のことを書いてください..."
             oninput="autoResize(this)"
             onkeydown="handleKey(event)"></textarea>
           <button id="mic-btn" class="mic-btn idle" onclick="toggleRecording()" title="音声入力">🎤</button>
@@ -270,7 +265,7 @@
       <button class="btn btn-primary" onclick="saveApiKey()">保存する</button>
     </div>
 
-<div class="setup-card">
+    <div class="setup-card">
       <h2>データ管理</h2>
       <div class="danger-btns">
         <button class="btn btn-danger" onclick="clearNotebook()">メモ帳をクリア</button>
@@ -286,13 +281,13 @@
 <script>
 // ===== STATE =====
 let apiKey = localStorage.getItem('esp_apiKey') || '';
-let scenario = localStorage.getItem('esp_scenario') || 'colleague';
 let notebook = JSON.parse(localStorage.getItem('esp_notebook') || '[]');
 let conversationHistory = [];
 let recognition = null;
 let isRecording = false;
 let isThinking = false;
 let speechSupported = false;
+let finalTranscript = '';
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
@@ -300,14 +295,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('api-key-input').value = apiKey;
     showApiStatus(true);
   }
-  document.getElementById('scenario-select').value = scenario;
   renderNotebook();
   initSpeech();
   addWelcomeMessage();
 });
 
 function addWelcomeMessage() {
-  addMessage('ai', "Hi! 今日はどんな1日でしたか？英語で日記を吹き込んでみてください。文法が多少おかしくても大丈夫 — 内容を理解して、より自然な表現を提案します！🎉", null, null, false);
+  addMessage('ai', "Hi! 今日はどんな1日でしたか？🎤ボタンを押して英語で話してみてください。話し終わったらもう一度押して停止 → ➤で送信します。文法が多少おかしくても大丈夫です！", null, null, false);
 }
 
 // ===== TABS =====
@@ -328,7 +322,6 @@ function autoResize(el) {
 }
 
 function handleKey(e) {
-  // Enterのみ（Shiftなし）で送信 — デスクトップ用。スマホはソフトキーボードなので不要だが一応
   if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) {
     e.preventDefault();
     submitText();
@@ -356,10 +349,8 @@ function initSpeech() {
   speechSupported = true;
   recognition = new SR();
   recognition.lang = 'en-US';
-  recognition.continuous = true;   // 無音でも止まらない
+  recognition.continuous = true;
   recognition.interimResults = true;
-
-  let finalTranscript = '';
 
   recognition.onresult = (e) => {
     let interim = '';
@@ -370,11 +361,11 @@ function initSpeech() {
         interim += e.results[i][0].transcript;
       }
     }
-    // テキストエリアにリアルタイム表示（確定分＋途中）
     document.getElementById('text-input').value = finalTranscript + interim;
     autoResize(document.getElementById('text-input'));
     document.getElementById('interim-display').textContent = interim ? '📝 ' + interim : '';
   };
+
   recognition.onstart = () => {
     isRecording = true;
     finalTranscript = '';
@@ -383,23 +374,25 @@ function initSpeech() {
     document.getElementById('mic-btn').textContent = '⏹';
     document.getElementById('interim-display').textContent = '🎤 録音中... もう一度押すと停止';
   };
+
   recognition.onend = () => {
-    // ユーザーがまだ録音中のつもりなら再起動（iOS Safariは無音で自動停止するため）
+    // isRecordingがtrueのままならiOSが自動停止したので再起動
     if (isRecording) {
       try { recognition.start(); } catch(e) {}
       return;
     }
+    // ユーザーが停止ボタンを押した場合
     document.getElementById('mic-btn').className = 'mic-btn idle';
     document.getElementById('mic-btn').textContent = '🎤';
     document.getElementById('interim-display').textContent = '';
-    // テキストエリアに確定テキストを入れて、ユーザーが確認してから手動送信
     if (finalTranscript.trim()) {
       document.getElementById('text-input').value = finalTranscript.trim();
       autoResize(document.getElementById('text-input'));
     }
   };
+
   recognition.onerror = (e) => {
-    if (e.error === 'no-speech') return; // 無音は無視
+    if (e.error === 'no-speech') return;
     isRecording = false;
     document.getElementById('mic-btn').className = 'mic-btn idle';
     document.getElementById('mic-btn').textContent = '🎤';
@@ -412,9 +405,9 @@ function toggleRecording() {
   if (isThinking) return;
   if (!speechSupported) return;
   if (isRecording) {
+    isRecording = false; // 先にfalseにしてonendで再起動しないようにする
     recognition.stop();
   } else {
-    document.getElementById('text-input').value = '';
     try { recognition.start(); } catch(e) {}
   }
 }
@@ -443,7 +436,6 @@ async function handleUserInput(text) {
 
   isThinking = false;
   setInputDisabled(false);
-  document.getElementById('text-input').focus();
 }
 
 function setInputDisabled(disabled) {
@@ -665,11 +657,6 @@ function saveApiKey() {
   localStorage.setItem('esp_apiKey', apiKey);
   showApiStatus(true);
   showToast('APIキーを保存しました');
-}
-function saveScenario() {
-  scenario = document.getElementById('scenario-select').value;
-  localStorage.setItem('esp_scenario', scenario);
-  showToast('シナリオを保存しました');
 }
 function showApiStatus(ok, msg) {
   document.getElementById('api-status').innerHTML = ok
