@@ -270,18 +270,7 @@
       <button class="btn btn-primary" onclick="saveApiKey()">保存する</button>
     </div>
 
-    <div class="setup-card">
-      <h2>会話シナリオ</h2>
-      <select id="scenario-select">
-        <option value="colleague">👔 外国人の同僚（ビジネス英語）</option>
-        <option value="friend">😊 英語ネイティブの友人（カジュアル）</option>
-        <option value="client">🤝 海外クライアント（フォーマル）</option>
-        <option value="traveler">✈️ 旅行先で出会った人（日常英語）</option>
-      </select>
-      <button class="btn btn-primary" onclick="saveScenario()">設定を保存</button>
-    </div>
-
-    <div class="setup-card">
+<div class="setup-card">
       <h2>データ管理</h2>
       <div class="danger-btns">
         <button class="btn btn-danger" onclick="clearNotebook()">メモ帳をクリア</button>
@@ -318,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function addWelcomeMessage() {
-  addMessage('ai', "Hi! I'm your English conversation partner. Type anything in English — even if your grammar isn't perfect, I'll understand and suggest natural expressions. Let's chat! 🎉", null, null, false);
+  addMessage('ai', "Hi! 今日はどんな1日でしたか？英語で日記を吹き込んでみてください。文法が多少おかしくても大丈夫 — 内容を理解して、より自然な表現を提案します！🎉", null, null, false);
 }
 
 // ===== TABS =====
@@ -367,39 +356,55 @@ function initSpeech() {
   speechSupported = true;
   recognition = new SR();
   recognition.lang = 'en-US';
-  recognition.continuous = false;
+  recognition.continuous = true;   // 無音でも止まらない
   recognition.interimResults = true;
 
+  let finalTranscript = '';
+
   recognition.onresult = (e) => {
-    let interim = '', final = '';
-    for (let r of e.results) {
-      if (r.isFinal) final += r[0].transcript;
-      else interim += r[0].transcript;
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        finalTranscript += e.results[i][0].transcript;
+      } else {
+        interim += e.results[i][0].transcript;
+      }
     }
-    document.getElementById('interim-display').textContent = interim || final || '';
-    if (final) {
-      document.getElementById('text-input').value = final.trim();
-      autoResize(document.getElementById('text-input'));
-    }
+    // テキストエリアにリアルタイム表示（確定分＋途中）
+    document.getElementById('text-input').value = finalTranscript + interim;
+    autoResize(document.getElementById('text-input'));
+    document.getElementById('interim-display').textContent = interim ? '📝 ' + interim : '';
   };
   recognition.onstart = () => {
     isRecording = true;
+    finalTranscript = '';
+    document.getElementById('text-input').value = '';
     document.getElementById('mic-btn').className = 'mic-btn recording';
-    document.getElementById('interim-display').textContent = '🎤 聞いています...';
+    document.getElementById('mic-btn').textContent = '⏹';
+    document.getElementById('interim-display').textContent = '🎤 録音中... もう一度押すと停止';
   };
   recognition.onend = () => {
-    isRecording = false;
+    // ユーザーがまだ録音中のつもりなら再起動（iOS Safariは無音で自動停止するため）
+    if (isRecording) {
+      try { recognition.start(); } catch(e) {}
+      return;
+    }
     document.getElementById('mic-btn').className = 'mic-btn idle';
+    document.getElementById('mic-btn').textContent = '🎤';
     document.getElementById('interim-display').textContent = '';
-    // 認識結果があればそのまま送信
-    const val = document.getElementById('text-input').value.trim();
-    if (val) submitText();
+    // テキストエリアに確定テキストを入れて、ユーザーが確認してから手動送信
+    if (finalTranscript.trim()) {
+      document.getElementById('text-input').value = finalTranscript.trim();
+      autoResize(document.getElementById('text-input'));
+    }
   };
   recognition.onerror = (e) => {
+    if (e.error === 'no-speech') return; // 無音は無視
     isRecording = false;
     document.getElementById('mic-btn').className = 'mic-btn idle';
+    document.getElementById('mic-btn').textContent = '🎤';
     document.getElementById('interim-display').textContent = '';
-    if (e.error !== 'no-speech') showToast('音声認識エラー: ' + e.error);
+    showToast('音声認識エラー: ' + e.error);
   };
 }
 
@@ -472,27 +477,22 @@ async function callClaude() {
 }
 
 function buildSystemPrompt() {
-  const s = {
-    colleague: 'You are a friendly foreign colleague in a business context.',
-    friend: 'You are a native English-speaking friend. Use casual, natural conversation.',
-    client: 'You are a professional overseas client. Use formal, polite language.',
-    traveler: 'You are someone the user met while traveling. Use natural everyday English.'
-  };
-  return `${s[scenario]}
+  return `You are a friendly and encouraging English writing coach helping a Japanese person improve their English through daily diary entries.
 
-The user is a Japanese person learning English. They may make grammar or vocabulary mistakes.
+The user will share what happened today in English — it may be rough, with grammar mistakes, unnatural phrasing, or incomplete sentences. That's perfectly fine.
 
 Respond in this EXACT format (all three sections required):
 
-REPLY: [Your natural, friendly reply in English — 2-4 sentences]
-NATURAL: [One natural English expression or improved version of what they said]
-EXPLANATION: [1-2 sentences in Japanese explaining why this expression is natural]
+REPLY: [2-4 sentences in English: briefly acknowledge what they shared, then give a naturally corrected or improved version of their diary entry]
+NATURAL: [One key natural expression or phrase from the corrected entry that is worth remembering]
+EXPLANATION: [1-2 sentences in Japanese explaining why this expression is natural or useful, and what was improved]
 
 Rules:
-- Always understand the user's intent even with imperfect grammar
-- Keep REPLY warm and encouraging
+- Always understand the user's intent even with imperfect English
+- In REPLY, first say something warm about their day, then show a natural version of what they wrote
+- NATURAL should be the single most useful takeaway expression
 - EXPLANATION must be in Japanese
-- If their English was already natural, offer a useful related expression for the topic`;
+- Be encouraging — praise their effort to journal in English`;
 }
 
 function parseResponse(text) {
