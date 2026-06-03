@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>English Speaking Practice</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f4f8; color: #2d3748;
+    height: 100dvh; /* dynamic viewport height for iOS */
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  .header {
+    background: #2b6cb0; color: white;
+    padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top));
+    flex-shrink: 0;
+  }
+  .header h1 { font-size: 18px; font-weight: 700; }
+  .header p { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+
+  .tabs {
+    display: flex; background: white;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1; padding: 11px 4px; text-align: center; cursor: pointer;
+    font-size: 11px; font-weight: 600; color: #718096;
+    border-bottom: 2px solid transparent; transition: all 0.2s;
+  }
+  .tab.active { color: #2b6cb0; border-bottom-color: #2b6cb0; }
+
+  /* panels fill remaining height */
+  .panels { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .panel { display: none; flex: 1; overflow-y: auto; padding: 14px; }
+  .panel.active { display: flex; flex-direction: column; }
+
+  /* ===== CHAT ===== */
+  .chat-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .chat-messages {
+    flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;
+    padding: 4px 0 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chat-messages:empty::after {
+    content: "下の入力欄に英語を書いて送信しましょう！";
+    display: block; text-align: center; color: #a0aec0;
+    margin-top: 60px; font-size: 14px; line-height: 1.6;
+  }
+
+  .msg { display: flex; gap: 8px; max-width: 90%; }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0; margin-top: 2px;
+  }
+  .msg.user .msg-avatar { background: #bee3f8; }
+  .msg.ai .msg-avatar { background: #c6f6d5; }
+  .msg-body { flex: 1; }
+  .msg-bubble {
+    padding: 10px 14px; border-radius: 16px;
+    font-size: 15px; line-height: 1.55;
+  }
+  .msg.user .msg-bubble {
+    background: #2b6cb0; color: white;
+    border-radius: 16px 16px 4px 16px;
+  }
+  .msg.ai .msg-bubble {
+    background: white; border: 1px solid #e2e8f0;
+    border-radius: 16px 16px 16px 4px;
+  }
+
+  /* natural expression card */
+  .natural-card {
+    margin-top: 8px; background: #fffbeb;
+    border: 1px solid #f6e05e; border-radius: 12px; padding: 12px 14px;
+  }
+  .natural-card .label { font-size: 10px; font-weight: 700; color: #b7791f; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .natural-card .expression { font-size: 15px; font-weight: 700; color: #744210; margin-bottom: 4px; }
+  .natural-card .explanation { font-size: 13px; color: #92400e; margin-bottom: 8px; line-height: 1.5; }
+  .save-btn {
+    font-size: 12px; padding: 6px 14px;
+    background: #f6e05e; color: #744210;
+    border: none; border-radius: 8px; cursor: pointer; font-weight: 700;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .save-btn.saved { background: #48bb78; color: white; }
+
+  /* input area */
+  .input-area {
+    padding: 10px 0;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    flex-shrink: 0;
+  }
+  .input-row { display: flex; gap: 8px; align-items: flex-end; }
+  .text-input {
+    flex: 1; padding: 11px 14px;
+    border: 2px solid #e2e8f0; border-radius: 22px;
+    font-size: 16px; /* 16px prevents iOS zoom */
+    line-height: 1.4; resize: none; outline: none;
+    font-family: inherit; max-height: 100px; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transition: border-color 0.2s;
+    background: white;
+  }
+  .text-input:focus { border-color: #2b6cb0; }
+  .send-btn {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: #2b6cb0; color: white; border: none;
+    font-size: 20px; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .send-btn:active { background: #2c5282; transform: scale(0.95); }
+  .send-btn:disabled { background: #90cdf4; }
+  .mic-btn {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: none; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; transition: all 0.15s;
+    background: #e2e8f0;
+  }
+  .mic-btn.idle { background: #e2e8f0; }
+  .mic-btn.recording { background: #fc8181; animation: pulse 1s infinite; }
+  .mic-btn:active { transform: scale(0.95); }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(229,62,62,0.4); } 50% { box-shadow: 0 0 0 8px rgba(229,62,62,0); } }
+  .interim-text { font-size: 12px; color: #a0aec0; font-style: italic; min-height: 18px; padding: 2px 4px; }
+
+  /* ===== NOTEBOOK ===== */
+  .nb-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-shrink: 0; }
+  .nb-header h2 { font-size: 17px; font-weight: 700; }
+  .nb-count { font-size: 12px; color: #718096; }
+  .nb-empty { text-align: center; padding: 60px 20px; color: #a0aec0; }
+  .nb-empty .icon { font-size: 44px; margin-bottom: 12px; }
+  .nb-empty p { font-size: 14px; line-height: 1.6; }
+  .nb-list { display: flex; flex-direction: column; gap: 10px; }
+  .nb-item {
+    background: white; border-radius: 12px; padding: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-left: 4px solid #f6e05e;
+  }
+  .nb-item .expr { font-size: 16px; font-weight: 700; color: #2d3748; margin-bottom: 4px; }
+  .nb-item .expl { font-size: 13px; color: #718096; margin-bottom: 6px; line-height: 1.4; }
+  .nb-item .meta { font-size: 11px; color: #a0aec0; margin-bottom: 10px; }
+  .nb-actions { display: flex; gap: 8px; }
+  .nb-actions button {
+    flex: 1; font-size: 13px; padding: 8px; border-radius: 8px;
+    border: none; cursor: pointer; font-weight: 600;
+  }
+  .btn-practice { background: #ebf8ff; color: #2c5282; }
+  .btn-delete { background: #fff5f5; color: #c53030; }
+
+  /* ===== PRACTICE ===== */
+  .practice-card {
+    background: white; border-radius: 14px; padding: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  .pr-progress { font-size: 12px; color: #a0aec0; text-align: center; margin-bottom: 10px; }
+  .pr-label { font-size: 13px; color: #718096; text-align: center; margin-bottom: 6px; }
+  .pr-expr { font-size: 22px; font-weight: 800; color: #2b6cb0; text-align: center; margin-bottom: 6px; line-height: 1.3; }
+  .pr-expl { font-size: 13px; color: #718096; text-align: center; margin-bottom: 16px; line-height: 1.4; }
+  .pr-textarea {
+    width: 100%; padding: 12px 14px;
+    border: 2px solid #e2e8f0; border-radius: 10px;
+    font-size: 16px; line-height: 1.4; resize: none;
+    outline: none; font-family: inherit; margin-bottom: 10px;
+  }
+  .pr-textarea:focus { border-color: #2b6cb0; }
+  .pr-btns { display: flex; gap: 8px; margin-bottom: 10px; }
+  .pr-btns button { flex: 1; padding: 11px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
+  .pr-result { padding: 12px 14px; border-radius: 10px; font-size: 14px; line-height: 1.5; display: none; }
+  .pr-result.show { display: block; }
+  .pr-result.good { background: #c6f6d5; color: #276749; }
+  .pr-result.hint { background: #ebf8ff; color: #2c5282; }
+  .pr-nav { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
+  .pr-nav button { padding: 8px 20px; border-radius: 8px; border: none; background: #e2e8f0; color: #4a5568; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+  /* ===== SETTINGS ===== */
+  .setup-card { background: white; border-radius: 12px; padding: 18px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .setup-card h2 { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+  .setup-card p { font-size: 13px; color: #718096; margin-bottom: 12px; line-height: 1.5; }
+  .field-row { display: flex; gap: 8px; }
+  .field-row input { flex: 1; padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 16px; }
+  .field-row input:focus { outline: none; border-color: #2b6cb0; }
+  select { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 15px; margin-bottom: 10px; background: white; }
+  .btn { padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; }
+  .btn-primary { background: #2b6cb0; color: white; width: 100%; padding: 12px; font-size: 15px; border-radius: 10px; margin-top: 4px; }
+  .btn-secondary { background: #e2e8f0; color: #4a5568; }
+  .btn-danger { background: #fff5f5; color: #c53030; border: 1px solid #fed7d7; }
+  .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 10px; }
+  .status-ok { background: #c6f6d5; color: #276749; }
+  .status-err { background: #fed7d7; color: #9b2c2c; }
+  .danger-btns { display: flex; gap: 8px; }
+  .danger-btns button { flex: 1; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; }
+
+  .loading-dots::after { content: ''; animation: dots 1.2s infinite; }
+  @keyframes dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
+
+  .toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: #2d3748; color: white; padding: 10px 20px;
+    border-radius: 20px; font-size: 14px; z-index: 100;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎙️ English Speaking Practice</h1>
+  <p>話す → 自然な表現を学ぶ → メモ帳に蓄積 → 英作文練習</p>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="chat" onclick="switchTab(this)">💬 会話</div>
+  <div class="tab" data-tab="notebook" onclick="switchTab(this)">📒 メモ帳</div>
+  <div class="tab" data-tab="practice" onclick="switchTab(this)">✏️ 練習</div>
+  <div class="tab" data-tab="settings" onclick="switchTab(this)">⚙️ 設定</div>
+</div>
+
+<div class="panels">
+
+  <!-- CHAT -->
+  <div id="tab-chat" class="panel active">
+    <div class="chat-wrap">
+      <div id="chat-messages" class="chat-messages"></div>
+      <div class="input-area">
+        <div id="interim-display" class="interim-text"></div>
+        <div class="input-row">
+          <textarea id="text-input" class="text-input" rows="1"
+            placeholder="英語を入力してください..."
+            oninput="autoResize(this)"
+            onkeydown="handleKey(event)"></textarea>
+          <button id="mic-btn" class="mic-btn idle" onclick="toggleRecording()" title="音声入力">🎤</button>
+          <button id="send-btn" class="send-btn" onclick="submitText()">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTEBOOK -->
+  <div id="tab-notebook" class="panel">
+    <div class="nb-header">
+      <h2>📒 表現メモ帳</h2>
+      <span class="nb-count" id="nb-count">0 件</span>
+    </div>
+    <div id="nb-list"></div>
+  </div>
+
+  <!-- PRACTICE -->
+  <div id="tab-practice" class="panel">
+    <div id="practice-area"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="tab-settings" class="panel">
+    <div class="setup-card">
+      <h2>Claude API キー</h2>
+      <p>Anthropic ConsoleでAPIキーを取得して入力してください。キーはこの端末のみに保存されます。</p>
+      <div class="field-row">
+        <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off" />
+      </div>
+      <div id="api-status"></div>
+      <button class="btn btn-primary" onclick="saveApiKey()">保存する</button>
+    </div>
+
+<div class="setup-card">
+      <h2>データ管理</h2>
+      <div class="danger-btns">
+        <button class="btn btn-danger" onclick="clearNotebook()">メモ帳をクリア</button>
+        <button class="btn btn-danger" onclick="clearAll()">全リセット</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ===== STATE =====
+let apiKey = localStorage.getItem('esp_apiKey') || '';
+let scenario = localStorage.getItem('esp_scenario') || 'colleague';
+let notebook = JSON.parse(localStorage.getItem('esp_notebook') || '[]');
+let conversationHistory = [];
+let recognition = null;
+let isRecording = false;
+let isThinking = false;
+let speechSupported = false;
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', () => {
+  if (apiKey) {
+    document.getElementById('api-key-input').value = apiKey;
+    showApiStatus(true);
+  }
+  document.getElementById('scenario-select').value = scenario;
+  renderNotebook();
+  initSpeech();
+  addWelcomeMessage();
+});
+
+function addWelcomeMessage() {
+  addMessage('ai', "Hi! 今日はどんな1日でしたか？英語で日記を吹き込んでみてください。文法が多少おかしくても大丈夫 — 内容を理解して、より自然な表現を提案します！🎉", null, null, false);
+}
+
+// ===== TABS =====
+function switchTab(el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  const name = el.dataset.tab;
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'notebook') renderNotebook();
+  if (name === 'practice') renderPractice();
+}
+
+// ===== TEXTAREA AUTO RESIZE =====
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+function handleKey(e) {
+  // Enterのみ（Shiftなし）で送信 — デスクトップ用。スマホはソフトキーボードなので不要だが一応
+  if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) {
+    e.preventDefault();
+    submitText();
+  }
+}
+
+// ===== TEXT INPUT =====
+function submitText() {
+  const input = document.getElementById('text-input');
+  const text = input.value.trim();
+  if (!text || isThinking) return;
+  if (!apiKey) { showToast('まずAPIキーを設定してください（設定タブ）'); switchTabByName('settings'); return; }
+  input.value = '';
+  input.style.height = 'auto';
+  handleUserInput(text);
+}
+
+// ===== SPEECH RECOGNITION =====
+function initSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById('mic-btn').style.display = 'none';
+    return;
+  }
+  speechSupported = true;
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.continuous = true;   // 無音でも止まらない
+  recognition.interimResults = true;
+
+  let finalTranscript = '';
+
+  recognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        finalTranscript += e.results[i][0].transcript;
+      } else {
+        interim += e.results[i][0].transcript;
+      }
+    }
+    // テキストエリアにリアルタイム表示（確定分＋途中）
+    document.getElementById('text-input').value = finalTranscript + interim;
+    autoResize(document.getElementById('text-input'));
+    document.getElementById('interim-display').textContent = interim ? '📝 ' + interim : '';
+  };
+  recognition.onstart = () => {
+    isRecording = true;
+    finalTranscript = '';
+    document.getElementById('text-input').value = '';
+    document.getElementById('mic-btn').className = 'mic-btn recording';
+    document.getElementById('mic-btn').textContent = '⏹';
+    document.getElementById('interim-display').textContent = '🎤 録音中... もう一度押すと停止';
+  };
+  recognition.onend = () => {
+    isRecording = false;
+    document.getElementById('mic-btn').className = 'mic-btn idle';
+    document.getElementById('mic-btn').textContent = '🎤';
+    document.getElementById('interim-display').textContent = '';
+    // テキストエリアに確定テキストを入れて、ユーザーが確認してから手動送信
+    if (finalTranscript.trim()) {
+      document.getElementById('text-input').value = finalTranscript.trim();
+      autoResize(document.getElementById('text-input'));
+    }
+  };
+  recognition.onerror = (e) => {
+    if (e.error === 'no-speech') return; // 無音は無視
+    isRecording = false;
+    document.getElementById('mic-btn').className = 'mic-btn idle';
+    document.getElementById('mic-btn').textContent = '🎤';
+    document.getElementById('interim-display').textContent = '';
+    showToast('音声認識エラー: ' + e.error);
+  };
+}
+
+function toggleRecording() {
+  if (isThinking) return;
+  if (!speechSupported) return;
+  if (isRecording) {
+    recognition.stop();
+  } else {
+    document.getElementById('text-input').value = '';
+    try { recognition.start(); } catch(e) {}
+  }
+}
+
+// ===== CHAT =====
+async function handleUserInput(text) {
+  if (!text || isThinking) return;
+  isThinking = true;
+  setInputDisabled(true);
+
+  addMessage('user', text, null, null, false);
+  conversationHistory.push({ role: 'user', content: text });
+
+  const thinkingId = addThinkingMessage();
+
+  try {
+    const raw = await callClaude();
+    removeThinkingMessage(thinkingId);
+    const p = parseResponse(raw);
+    addMessage('ai', p.reply, p.natural, p.explanation, true);
+    conversationHistory.push({ role: 'assistant', content: raw });
+  } catch(e) {
+    removeThinkingMessage(thinkingId);
+    addMessage('ai', '⚠️ エラー: ' + e.message, null, null, false);
+  }
+
+  isThinking = false;
+  setInputDisabled(false);
+  document.getElementById('text-input').focus();
+}
+
+function setInputDisabled(disabled) {
+  document.getElementById('send-btn').disabled = disabled;
+  document.getElementById('text-input').disabled = disabled;
+}
+
+async function callClaude() {
+  const messages = conversationHistory.slice(-10);
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5',
+      max_tokens: 1024,
+      system: buildSystemPrompt(),
+      messages
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'HTTP ' + res.status);
+  }
+  const data = await res.json();
+  return data.content[0].text;
+}
+
+function buildSystemPrompt() {
+  return `You are a friendly and encouraging English writing coach helping a Japanese person improve their English through daily diary entries.
+
+The user will share what happened today in English — it may be rough, with grammar mistakes, unnatural phrasing, or incomplete sentences. That's perfectly fine.
+
+Respond in this EXACT format (all three sections required):
+
+REPLY: [2-4 sentences in English: briefly acknowledge what they shared, then give a naturally corrected or improved version of their diary entry]
+NATURAL: [One key natural expression or phrase from the corrected entry that is worth remembering]
+EXPLANATION: [1-2 sentences in Japanese explaining why this expression is natural or useful, and what was improved]
+
+Rules:
+- Always understand the user's intent even with imperfect English
+- In REPLY, first say something warm about their day, then show a natural version of what they wrote
+- NATURAL should be the single most useful takeaway expression
+- EXPLANATION must be in Japanese
+- Be encouraging — praise their effort to journal in English`;
+}
+
+function parseResponse(text) {
+  const replyM = text.match(/REPLY:\s*([\s\S]*?)(?=NATURAL:|$)/);
+  const naturalM = text.match(/NATURAL:\s*([\s\S]*?)(?=EXPLANATION:|$)/);
+  const explM = text.match(/EXPLANATION:\s*([\s\S]*?)$/);
+  return {
+    reply: replyM ? replyM[1].trim() : text,
+    natural: naturalM ? naturalM[1].trim() : null,
+    explanation: explM ? explM[1].trim() : null
+  };
+}
+
+function addMessage(role, text, natural, explanation, showCard) {
+  const container = document.getElementById('chat-messages');
+  const isUser = role === 'user';
+  const div = document.createElement('div');
+  div.className = 'msg ' + (isUser ? 'user' : 'ai');
+  div.innerHTML = `
+    <div class="msg-avatar">${isUser ? '👤' : '🤖'}</div>
+    <div class="msg-body">
+      <div class="msg-bubble">${esc(text)}</div>
+      ${showCard && natural ? `
+        <div class="natural-card">
+          <div class="label">💡 より自然な表現</div>
+          <div class="expression">"${esc(natural)}"</div>
+          ${explanation ? `<div class="explanation">${esc(explanation)}</div>` : ''}
+          <button class="save-btn" onclick="saveExpr('${esc(natural)}','${esc(explanation||'')}',this)">📒 メモ帳に保存</button>
+        </div>` : ''}
+    </div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function addThinkingMessage() {
+  const id = 'th-' + Date.now();
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg ai'; div.id = id;
+  div.innerHTML = `<div class="msg-avatar">🤖</div><div class="msg-body"><div class="msg-bubble" style="color:#a0aec0">考え中<span class="loading-dots"></span></div></div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return id;
+}
+function removeThinkingMessage(id) { const el = document.getElementById(id); if (el) el.remove(); }
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ===== NOTEBOOK =====
+function saveExpr(expr, expl, btn) {
+  if (notebook.find(e => e.expression === expr)) { showToast('すでに保存済みです'); return; }
+  notebook.unshift({ id: Date.now(), expression: expr, explanation: expl, savedAt: new Date().toLocaleDateString('ja-JP') });
+  localStorage.setItem('esp_notebook', JSON.stringify(notebook));
+  btn.textContent = '✅ 保存しました';
+  btn.className = 'save-btn saved';
+  showToast('メモ帳に保存しました！');
+}
+
+function renderNotebook() {
+  const container = document.getElementById('nb-list');
+  document.getElementById('nb-count').textContent = notebook.length + ' 件';
+  if (notebook.length === 0) {
+    container.innerHTML = `<div class="nb-empty"><div class="icon">📒</div><p>まだ表現が保存されていません。<br>会話中の「メモ帳に保存」ボタンを押してみましょう！</p></div>`;
+    return;
+  }
+  container.innerHTML = notebook.map(item => `
+    <div class="nb-item">
+      <div class="expr">"${esc(item.expression)}"</div>
+      ${item.explanation ? `<div class="expl">${esc(item.explanation)}</div>` : ''}
+      <div class="meta">保存日: ${item.savedAt}</div>
+      <div class="nb-actions">
+        <button class="btn-practice" onclick="practiceThis(${item.id})">✏️ 練習する</button>
+        <button class="btn-delete" onclick="deleteExpr(${item.id})">🗑️ 削除</button>
+      </div>
+    </div>`).join('');
+}
+
+function deleteExpr(id) {
+  notebook = notebook.filter(e => e.id !== id);
+  localStorage.setItem('esp_notebook', JSON.stringify(notebook));
+  renderNotebook();
+}
+function clearNotebook() {
+  if (!confirm('メモ帳の全表現を削除しますか？')) return;
+  notebook = [];
+  localStorage.setItem('esp_notebook', JSON.stringify(notebook));
+  renderNotebook();
+  showToast('メモ帳をクリアしました');
+}
+
+// ===== PRACTICE =====
+let prItems = [], prIdx = 0, prCurrentExpr = '';
+
+function renderPractice() {
+  const area = document.getElementById('practice-area');
+  if (notebook.length === 0) {
+    area.innerHTML = `<div class="nb-empty"><div class="icon">✏️</div><p>メモ帳に表現を保存すると<br>ここで英作文練習ができます！</p></div>`;
+    return;
+  }
+  prItems = [...notebook];
+  showPracticeCard();
+}
+
+function practiceThis(id) {
+  switchTabByName('practice');
+  prItems = [...notebook];
+  prIdx = prItems.findIndex(n => n.id === id);
+  if (prIdx < 0) prIdx = 0;
+  showPracticeCard();
+}
+
+function showPracticeCard() {
+  if (!prItems.length) { renderPractice(); return; }
+  prIdx = Math.max(0, Math.min(prIdx, prItems.length - 1));
+  const item = prItems[prIdx];
+  prCurrentExpr = item.expression;
+  document.getElementById('practice-area').innerHTML = `
+    <div class="practice-card">
+      <div class="pr-progress">${prIdx + 1} / ${prItems.length}</div>
+      <div class="pr-label">この表現を使って英文を作ってみよう：</div>
+      <div class="pr-expr">"${esc(item.expression)}"</div>
+      <div class="pr-expl">${esc(item.explanation || '')}</div>
+      <textarea class="pr-textarea" id="pr-input" rows="3" placeholder="この表現を使って英文を書いてみましょう..."></textarea>
+      <div class="pr-btns">
+        <button style="background:#2b6cb0;color:white;" onclick="checkPractice()">✅ AIにチェック</button>
+        <button style="background:#e2e8f0;color:#4a5568;" onclick="showAnswer()">💡 例文を見る</button>
+      </div>
+      <div id="pr-result" class="pr-result"></div>
+      <div class="pr-nav">
+        <button onclick="prIdx--;showPracticeCard()">← 前へ</button>
+        <button onclick="prIdx++;showPracticeCard()">次へ →</button>
+      </div>
+    </div>`;
+}
+
+async function checkPractice() {
+  const input = document.getElementById('pr-input').value.trim();
+  if (!input) { showToast('英文を入力してください'); return; }
+  if (!apiKey) { showToast('APIキーを設定してください'); return; }
+  const res = document.getElementById('pr-result');
+  res.className = 'pr-result show hint'; res.textContent = 'チェック中...';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5', max_tokens: 512,
+        system: `You are an English writing coach. Target expression: "${prCurrentExpr}". Check if the user used it correctly and if the sentence is grammatical. Respond in Japanese in 2-3 encouraging sentences. If good, say so clearly.`,
+        messages: [{ role: 'user', content: `My sentence: "${input}"` }]
+      })
+    });
+    const d = await r.json();
+    const fb = d.content[0].text;
+    const good = /いい|正しい|自然|Great|Good|Perfect|正確|使えて|上手|素晴らし/i.test(fb);
+    res.className = 'pr-result show ' + (good ? 'good' : 'hint');
+    res.textContent = fb;
+  } catch(e) { res.textContent = 'エラー: ' + e.message; }
+}
+
+function showAnswer() {
+  const res = document.getElementById('pr-result');
+  res.className = 'pr-result show hint';
+  res.textContent = `例文: "I wanted to say '${prCurrentExpr}' — try using this expression in your next sentence!"`;
+}
+
+// ===== SETTINGS =====
+function saveApiKey() {
+  const val = document.getElementById('api-key-input').value.trim();
+  if (!val.startsWith('sk-ant-')) { showApiStatus(false, 'sk-ant- で始まる形式で入力してください'); return; }
+  apiKey = val;
+  localStorage.setItem('esp_apiKey', apiKey);
+  showApiStatus(true);
+  showToast('APIキーを保存しました');
+}
+function saveScenario() {
+  scenario = document.getElementById('scenario-select').value;
+  localStorage.setItem('esp_scenario', scenario);
+  showToast('シナリオを保存しました');
+}
+function showApiStatus(ok, msg) {
+  document.getElementById('api-status').innerHTML = ok
+    ? '<span class="status-badge status-ok">✓ APIキー設定済み</span>'
+    : `<span class="status-badge status-err">✗ ${msg || 'エラー'}</span>`;
+}
+function clearAll() {
+  if (!confirm('全データをリセットしますか？')) return;
+  localStorage.clear(); location.reload();
+}
+
+// ===== UTILS =====
+function switchTabByName(name) {
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.dataset.tab === name) t.classList.add('active');
+    else t.classList.remove('active');
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'notebook') renderNotebook();
+  if (name === 'practice') renderPractice();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
